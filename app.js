@@ -11,7 +11,7 @@ const memoryStorage = {};
 function getStorage() {
   if (storageAvailable) {
     try {
-      // Try to access storage - will use localStorage on GitHub Pages
+      // Try to access storage - will use persistent storage on GitHub Pages
       const testKey = 'test_' + Date.now();
       const storage = window['local' + 'Storage'];
       storage.setItem(testKey, 'test');
@@ -51,30 +51,26 @@ function initializeStaffData() {
   console.log('=== INITIALIZING STAFF DATA ===');
   console.log('Current URL:', window.location.href);
   
-  // Test localStorage first
-  testLocalStorageAvailability();
-  
-  // Try to load from storage
+  // FIRST: Try to load from localStorage directly (GitHub Pages supports this)
   try {
-    const storage = getStorage();
-    const savedData = storage.getItem('staffData');
-    console.log('storage.getItem result:', savedData ? 'DATA FOUND' : 'NO DATA');
+    const savedData = window.localStorage.getItem('staffData');
+    console.log('window.localStorage.getItem result:', savedData ? 'DATA FOUND (' + savedData.length + ' chars)' : 'NO DATA');
     
     if (savedData) {
       const parsed = JSON.parse(savedData);
       if (Array.isArray(parsed) && parsed.length > 0) {
         staffData = parsed;
-        console.log('✓ Loaded from localStorage:', staffData.length, 'staff members');
-        console.log('✓ Sample data:', staffData[0].atlasId, staffData[0].contact.phone);
-        return;
+        console.log('✓ LOADED FROM STORAGE:', staffData.length, 'staff members');
+        console.log('✓ Sample:', staffData[0].atlasId, '-', staffData[0].contact.phone);
+        return; // STOP HERE - we loaded from localStorage successfully
       }
     }
   } catch(e) {
     console.error('Error loading from localStorage:', e);
   }
   
-  // Load defaults if localStorage empty
-  console.log('No saved data - loading defaults');
+  // ONLY if localStorage is empty, load defaults
+  console.log('No saved data found - loading defaults');
   staffData = [
   {
     id: 20,
@@ -2989,7 +2985,7 @@ function initializeStaffData() {
     storage.setItem('staffData', JSON.stringify(staffData));
     console.log('✓ Saved defaults to storage');
   } catch(e) {
-    console.error('Error saving defaults:', e);
+    console.error('Error saving defaults to storage:', e);
   }
 }
 
@@ -2999,20 +2995,22 @@ function saveToMemoryStore() {
     const storage = getStorage();
     const dataStr = JSON.stringify(staffData);
     storage.setItem('staffData', dataStr);
-    console.log('✓ Saved to storage:', staffData.length, 'staff members');
+    console.log('✓ SAVED TO STORAGE:', staffData.length, 'staff members');
     console.log('✓ Data size:', dataStr.length, 'characters');
     
-    // Verify
+    // Verify it was saved
     const verify = storage.getItem('staffData');
     if (verify) {
       console.log('✓ VERIFIED: Data in storage');
+      const parsed = JSON.parse(verify);
+      console.log('✓ Verified count:', parsed.length, 'members');
       return true;
     } else {
-      console.error('✗ VERIFY FAILED: Nothing in storage');
+      console.error('✗ VERIFY FAILED: Nothing in storage after save!');
       return false;
     }
   } catch(e) {
-    console.error('✗ Save failed:', e);
+    console.error('✗ Save to localStorage failed:', e);
     alert('Error saving changes: ' + e.message);
     return false;
   }
@@ -4964,7 +4962,7 @@ function saveStaffData() {
     const storage = getStorage();
     const jsonData = JSON.stringify(staffData);
     storage.setItem('staffData', jsonData);
-    console.log('✓ SAVED to storage:', staffData.length, 'staff members');
+    console.log('✓ SAVED to localStorage:', staffData.length, 'staff members');
     console.log('Data size:', jsonData.length, 'characters');
     return true;
   } catch(e) {
@@ -5048,27 +5046,18 @@ function editContact(atlasId) {
   if (newPhone && newPhone !== staff.contact.phone) {
     // Update the phone
     staff.contact.phone = newPhone;
-    console.log('Phone updated to:', newPhone);
+    console.log('Updated phone for', atlasId, 'to:', newPhone);
     
-    // Save to storage
+    // SAVE TO LOCALSTORAGE
     const saved = saveToLocalStorage();
     
-    // Verify it was saved
-    const storage = getStorage();
-    const verify = storage.getItem('staffData');
-    if (verify) {
-      const parsed = JSON.parse(verify);
-      const verifyStaff = parsed.find(s => s.atlasId === atlasId);
-      console.log('Verified saved phone:', verifyStaff.contact.phone);
-    }
-    
     // Re-render
-    renderStaffSections(atlasId);
+    renderStaffDetail();
     
     if (saved) {
-      alert('✓ Phone number updated and saved!');
+      alert('✓ Phone number updated and saved to localStorage!');
     } else {
-      alert('⚠️ Phone number updated but save failed!');
+      alert('⚠️ Phone updated but localStorage save failed!');
     }
   }
 }
