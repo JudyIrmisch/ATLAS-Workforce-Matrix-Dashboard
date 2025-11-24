@@ -1,0 +1,144 @@
+// Staff data
+let staffData = [];
+
+// Users data
+let users = [];
+
+// Check if window.localStorage is available
+console.log('=== CHECKING LOCALSTORAGE ===');
+try {
+  window.localStorage.setItem('_test', '1');
+  window.localStorage.removeItem('_test');
+  console.log('✓ window.localStorage is AVAILABLE');
+} catch(e) {
+  console.error('✗ window.localStorage BLOCKED:', e);
+  alert('Warning: window.localStorage is not available. Changes will not persist.');
+}
+
+// Initialize users on page load
+function initializeUsers() {
+  console.log('=== INITIALIZING USERS ===');
+  
+  // Try to load from localStorage
+  try {
+    const savedUsers = window.localStorage.getItem('users');
+    console.log('Users check:', savedUsers ? `DATA FOUND (${savedUsers.length} chars)` : 'NO DATA');
+    
+    if (savedUsers) {
+      const parsed = JSON.parse(savedUsers);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        users = parsed;
+        console.log('✓ LOADED USERS FROM LOCALSTORAGE:', users.length, 'users');
+        return;
+      }
+    }
+  } catch(e) {
+    console.error('Error loading users from localStorage:', e);
+  }
+  
+  // Load default users if no saved data
+  console.log('No saved users - loading default');
+  users = [
+    {
+      username: 'Judy Irmisch',
+      password: hashPassword('ATLAS2025'),
+      role: 'administrator'
+    }
+  ];
+  
+  console.log('Default user loaded:', users.length, 'user');
+  
+  // Save default to localStorage
+  try {
+    window.localStorage.setItem('users', JSON.stringify(users));
+    console.log('✓ Saved default user to localStorage');
+  } catch(e) {
+    console.error('Error saving default user:', e);
+  }
+}
+
+// Save users to localStorage
+function saveUsersToLocalStorage() {
+  console.log('=== SAVING USERS TO LOCALSTORAGE ===');
+  try {
+    const dataStr = JSON.stringify(users);
+    window.localStorage.setItem('users', dataStr);
+    console.log('✓ SAVED USERS:', users.length, 'users');
+    
+    // Verify
+    const verify = window.localStorage.getItem('users');
+    if (verify) {
+      console.log('✓ VERIFIED: Users in localStorage');
+      return true;
+    } else {
+      console.error('✗ VERIFY FAILED');
+      return false;
+    }
+  } catch(e) {
+    console.error('✗ SAVE USERS FAILED:', e);
+    alert('Error saving users: ' + e.message);
+    return false;
+  }
+}
+
+// Password hashing function
+function hashPassword(password) {
+  let hash = 0;
+  for (let i = 0; i < password.length; i++) {
+    const char = password.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash;
+  }
+  return hash.toString();
+}
+
+// Initialize staff data on page load
+function initializeStaffData() {
+  console.log('=== INITIALIZING STAFF DATA ===');
+  
+  // Try to load from window.localStorage
+  try {
+    const savedData = window.localStorage.getItem('staffData');
+    console.log('window.localStorage check:', savedData ? `DATA FOUND (${savedData.length} chars)` : 'NO DATA');
+    
+    if (savedData) {
+      const parsed = JSON.parse(savedData);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        staffData = parsed;
+        console.log('✓ LOADED FROM LOCALSTORAGE:', staffData.length, 'staff members');
+        console.log('✓ First member:', staffData[0].atlasId, '-', staffData[0].contact.phone);
+        return; // STOP - successfully loaded
+      }
+    }
+  } catch(e) {
+    console.error('Error loading from window.localStorage:', e);
+  }
+  
+  // Load defaults if no saved data
+  console.log('No saved data - loading defaults');
+  staffData = [
+  {
+    id: 20,
+    name: 'David ADAM',
+    position: 'Contractor',
+    atlasId: 'ADAMDavid',
+    state: 'NSW',
+    teamStatus: 'Active',
+    dateOfBirth: '12-Mar-1960',
+    contact: {
+      email: 'auskie1@optusnet.com.au',
+      phone: '0409-992-215',
+      address: '23 Picasso Cresent, Old Toongabbie, NSW, 2146',
+      emergencyContact: 'Not provided'
+    },
+    insurance: {
+      professionalIndemnity: {
+        provider: 'On File',
+        number: 'AU00022515-003',
+        startDate: '30-Jun-2025',
+        expiry: '30-Jun-2026',
+        status: 'current'
+      },
+      publicLiability: {
+        provider: 'On File',
+      
