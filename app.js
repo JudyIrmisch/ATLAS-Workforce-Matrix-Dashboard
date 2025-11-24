@@ -1,25 +1,26 @@
-// Staff data
+// Staff data and users
 let staffData = [];
+let users = [];
 
-// Check if getStorage() is available
+// Check if window.localStorage is available
 console.log('=== CHECKING LOCALSTORAGE ===');
 try {
-  getStorage().setItem('_test', '1');
-  getStorage().removeItem('_test');
-  console.log('✓ getStorage() is AVAILABLE');
+  window.localStorage.setItem('_test', '1');
+  window.localStorage.removeItem('_test');
+  console.log('✓ window.localStorage is AVAILABLE');
 } catch(e) {
-  console.error('✗ getStorage() BLOCKED:', e);
-  alert('Warning: getStorage() is not available. Changes will not persist.');
+  console.error('✗ window.localStorage BLOCKED:', e);
+  alert('Warning: window.localStorage is not available. Changes will not persist.');
 }
 
 // Initialize staff data on page load
 function initializeStaffData() {
   console.log('=== INITIALIZING STAFF DATA ===');
   
-  // Try to load from getStorage()
+  // Try to load from window.localStorage
   try {
-    const savedData = getStorage().getItem('staffData');
-    console.log('getStorage() check:', savedData ? `DATA FOUND (${savedData.length} chars)` : 'NO DATA');
+    const savedData = window.localStorage.getItem('staffData');
+    console.log('window.localStorage check:', savedData ? `DATA FOUND (${savedData.length} chars)` : 'NO DATA');
     
     if (savedData) {
       const parsed = JSON.parse(savedData);
@@ -31,7 +32,7 @@ function initializeStaffData() {
       }
     }
   } catch(e) {
-    console.error('Error loading from getStorage():', e);
+    console.error('Error loading from window.localStorage:', e);
   }
   
   // Load defaults if no saved data
@@ -2943,28 +2944,28 @@ function initializeStaffData() {
   
   console.log('Default staff loaded:', staffData.length, 'members');
   
-  // Save defaults to getStorage()
+  // Save defaults to window.localStorage
   try {
-    getStorage().setItem('staffData', JSON.stringify(staffData));
-    console.log('✓ Saved defaults to getStorage()');
+    window.localStorage.setItem('staffData', JSON.stringify(staffData));
+    console.log('✓ Saved defaults to window.localStorage');
   } catch(e) {
     console.error('Error saving defaults:', e);
   }
 }
 
-// Save to getStorage()
+// Save to window.localStorage
 function saveToLocalStorage() {
   console.log('=== SAVING TO LOCALSTORAGE ===');
   try {
     const dataStr = JSON.stringify(staffData);
-    getStorage().setItem('staffData', dataStr);
+    window.localStorage.setItem('staffData', dataStr);
     console.log('✓ SAVED:', staffData.length, 'staff members');
     console.log('✓ Size:', dataStr.length, 'characters');
     
     // Verify
-    const verify = getStorage().getItem('staffData');
+    const verify = window.localStorage.getItem('staffData');
     if (verify) {
-      console.log('✓ VERIFIED: Data in getStorage()');
+      console.log('✓ VERIFIED: Data in window.localStorage');
       return true;
     } else {
       console.error('✗ VERIFY FAILED');
@@ -2997,54 +2998,76 @@ let isEditModeEnabled = false;
 let currentUser = null;
 let currentUserRole = null;
 
-// Default users - Judy Irmisch as administrator
-let users = [
-  {
-    username: 'Judy Irmisch',
-    password: hashPassword('ATLAS2025'),
-    role: 'administrator'
-  }
-];
-
 // Legacy authorizedUsers references users
 let authorizedUsers = users;
 
-// Initialize users from localStorage
+// Initialize users from window.localStorage
 function initializeUsers() {
   console.log('=== INITIALIZING USERS ===');
   
+  // Try to load from window.localStorage
   try {
-    const savedUsers = getStorage().getItem('atlasUsers');
+    const savedUsers = window.localStorage.getItem('users');
+    console.log('Users check:', savedUsers ? `DATA FOUND (${savedUsers.length} chars)` : 'NO DATA');
+    
     if (savedUsers) {
       const parsed = JSON.parse(savedUsers);
       if (Array.isArray(parsed) && parsed.length > 0) {
         users = parsed;
         authorizedUsers = users;
         console.log('✓ LOADED USERS FROM LOCALSTORAGE:', users.length, 'users');
-        console.log('Users loaded:', users.map(u => u.username + ' (' + u.role + ')'));
-        return;
+        console.log('✓ Users:', users.map(u => u.username).join(', '));
+        return; // STOP - successfully loaded
       }
     }
   } catch(e) {
-    console.error('Error loading users from localStorage:', e);
+    console.error('Error loading users from window.localStorage:', e);
   }
   
-  // No saved users - use defaults
-  console.log('No saved users - using default administrator');
-  saveUsersToLocalStorage();
+  // Load default admin user if no saved users
+  console.log('No saved users - loading default admin');
+  users = [
+    {
+      username: 'Judy Irmisch',
+      password: hashPassword('ATLAS2025'),
+      role: 'administrator'
+    }
+  ];
+  authorizedUsers = users;
+  
+  console.log('Default user loaded:', users.length, 'user');
+  
+  // Save default to window.localStorage
+  try {
+    window.localStorage.setItem('users', JSON.stringify(users));
+    console.log('✓ Saved default user to window.localStorage');
+  } catch(e) {
+    console.error('Error saving default user:', e);
+  }
 }
 
-// Save users to localStorage
+// Save users to window.localStorage
 function saveUsersToLocalStorage() {
   console.log('=== SAVING USERS TO LOCALSTORAGE ===');
   try {
     const dataStr = JSON.stringify(users);
-    getStorage().setItem('atlasUsers', dataStr);
+    window.localStorage.setItem('users', dataStr);
     console.log('✓ SAVED USERS:', users.length, 'users');
-    console.log('Saved users:', users.map(u => u.username + ' (' + u.role + ')'));
-    return true;
+    console.log('✓ Size:', dataStr.length, 'characters');
+    console.log('✓ Usernames:', users.map(u => u.username).join(', '));
+    
+    // Verify
+    const verify = window.localStorage.getItem('users');
+    if (verify) {
+      console.log('✓ VERIFIED: Users in window.localStorage');
+      return true;
+    } else {
+      console.error('✗ VERIFY FAILED');
+      return false;
+    }
   } catch(e) {
     console.error('✗ SAVE USERS FAILED:', e);
+    alert('Error saving users: ' + e.message);
     return false;
   }
 }
@@ -3379,25 +3402,34 @@ function addNewUser() {
   }
   
   // Check if username already exists
-  if (authorizedUsers.find(u => u.username === username)) {
+  if (users.find(u => u.username === username)) {
     alert('Username already exists');
     return;
   }
   
-  authorizedUsers.push({
+  // Add new user
+  const newUser = {
     username: username,
     password: hashPassword(password),
-    role: role
-  });
+    role: role || 'user'
+  };
   
-  // *** CRITICAL FIX: Save to localStorage ***
+  users.push(newUser);
+  authorizedUsers = users;
+  console.log('=== ADDED NEW USER ===');
+  console.log('Username:', username);
+  console.log('Role:', role);
+  console.log('Total users:', users.length);
+  
+  // *** CRITICAL: SAVE TO LOCALSTORAGE ***
   saveUsersToLocalStorage();
-  console.log('✓ New user saved to localStorage:', username);
   
+  // Clear form and update UI
   document.getElementById('addUserForm').reset();
   renderUserList();
   populateLoginDropdown();
-  showSuccessMessage(`User "${username}" added successfully as ${role}!`);
+  
+  showSuccessMessage(`✓ User ${username} added and saved!`);
 }
 
 // Add new password (legacy)
@@ -3418,9 +3450,10 @@ function changeUserRole(index, newRole) {
   }
   
   user.role = newRole;
-  // *** CRITICAL FIX: Save to localStorage after role change ***
+  authorizedUsers = users;
+  // *** CRITICAL FIX: Save to window.localStorage after role change ***
   saveUsersToLocalStorage();
-  console.log('✓ User role changed and saved to localStorage:', user.username, '->', newRole);
+  console.log('✓ User role changed and saved to window.localStorage:', user.username, '->', newRole);
   renderUserList();
   showSuccessMessage(`User role updated to ${newRole}!`);
   
@@ -3444,9 +3477,10 @@ function changeUserPassword(index) {
   }
   
   user.password = hashPassword(newPassword);
-  // *** CRITICAL FIX: Save to localStorage after password change ***
+  authorizedUsers = users;
+  // *** CRITICAL FIX: Save to window.localStorage after password change ***
   saveUsersToLocalStorage();
-  console.log('✓ User password changed and saved to localStorage:', user.username);
+  console.log('✓ User password changed and saved to window.localStorage:', user.username);
   showSuccessMessage(`Password changed for "${user.username}"!`);
 }
 
@@ -3468,10 +3502,11 @@ function deleteUser(index) {
   }
   
   if (confirm(`Are you sure you want to delete user "${user.username}"?\nThis action cannot be undone.`)) {
-    authorizedUsers.splice(index, 1);
-    // *** CRITICAL FIX: Save to localStorage after delete ***
+    users.splice(index, 1);
+    authorizedUsers = users;
+    // *** CRITICAL FIX: Save to window.localStorage after delete ***
     saveUsersToLocalStorage();
-    console.log('✓ User deleted and saved to localStorage:', user.username);
+    console.log('✓ User deleted and saved to window.localStorage:', user.username);
     renderUserList();
     populateLoginDropdown();
     showSuccessMessage('User deleted successfully!');
@@ -3535,7 +3570,7 @@ function populateSOAFilter() {
 function init() {
   console.log('=== PAGE LOAD START ===');
   
-  // Step 1: Initialize users (load from localStorage FIRST)
+  // Step 1: Initialize users (load from window.localStorage FIRST)
   initializeUsers();
   
   // Step 2: Initialize staff data (load from getStorage() or defaults)
@@ -5091,6 +5126,7 @@ function saveEdit(section, itemIndex = null) {
       currentStaff.insurance[insType].expiry = formData.get('expiry');
       currentStaff.insurance[insType].status = formData.get('status');
       
+      // Save to window.localStorage
       saveToLocalStorage();
       break;
     case 'driver':
@@ -5100,6 +5136,7 @@ function saveEdit(section, itemIndex = null) {
       currentStaff.driverLicence[itemIndex].expiry = formData.get('expiry');
       currentStaff.driverLicence[itemIndex].status = formData.get('status');
       
+      // Save to window.localStorage
       saveToLocalStorage();
       break;
     case 'hrw':
@@ -5111,6 +5148,7 @@ function saveEdit(section, itemIndex = null) {
       currentStaff.hrwLicence[itemIndex].classes = formData.get('classes');
       currentStaff.hrwLicence[itemIndex].status = formData.get('status');
       
+      // Save to window.localStorage
       saveToLocalStorage();
       break;
     case 'cards':
@@ -5122,6 +5160,7 @@ function saveEdit(section, itemIndex = null) {
       currentStaff.cardLicences[itemIndex].classes = formData.get('classes');
       currentStaff.cardLicences[itemIndex].status = formData.get('status');
       
+      // Save to window.localStorage
       saveToLocalStorage();
       break;
     case 'forms':
@@ -5130,6 +5169,7 @@ function saveEdit(section, itemIndex = null) {
       currentStaff.atlasforms[itemIndex].signedDate = formData.get('signedDate');
       currentStaff.atlasforms[itemIndex].status = formData.get('status');
       
+      // Save to window.localStorage
       saveToLocalStorage();
       break;
     case 'police':
@@ -5140,6 +5180,7 @@ function saveEdit(section, itemIndex = null) {
       currentStaff.policeCheck[0].comments = formData.get('comments');
       currentStaff.policeCheck[0].status = formData.get('status');
       
+      // Save to window.localStorage
       saveToLocalStorage();
       break;
     case 'quals':
@@ -5156,6 +5197,7 @@ function saveEdit(section, itemIndex = null) {
         currentStaff.qualifications[currentQualTab][qualIndex].completedBy = formData.get('completedBy');
       }
       
+      // Save to window.localStorage
       saveToLocalStorage();
       break;
   }
@@ -5676,42 +5718,45 @@ function confirmDeleteStaff() {
   console.log('Staff deleted:', deletedAtlasId, '- Total staff now:', staffData.length);
 }
 
-// Test getStorage() function
+// Test window.localStorage function
 function testLocalStorage() {
   console.log('=== TESTING LOCALSTORAGE ===');
   
   // Test 1: Can we write?
   try {
-    getStorage().setItem('test123', 'hello');
+    window.localStorage.setItem('test123', 'hello');
     console.log('✓ Write test passed');
   } catch(e) {
     console.error('✗ Write test failed:', e);
-    alert('getStorage() write BLOCKED');
+    alert('window.localStorage write BLOCKED');
     return;
   }
   
   // Test 2: Can we read?
-  const test = getStorage().getItem('test123');
+  const test = window.localStorage.getItem('test123');
   if (test === 'hello') {
     console.log('✓ Read test passed');
   } else {
     console.error('✗ Read test failed');
-    alert('getStorage() read FAILED');
+    alert('window.localStorage read FAILED');
     return;
   }
   
   // Test 3: Check current data
-  const current = getStorage().getItem('staffData');
-  if (current) {
-    const parsed = JSON.parse(current);
-    console.log('✓ Current staffData:', parsed.length, 'members');
-    alert(`getStorage() is working!\nStored: ${parsed.length} staff members\nSize: ${current.length} chars`);
+  const current = window.localStorage.getItem('staffData');
+  const usersData = window.localStorage.getItem('users');
+  if (current && usersData) {
+    const parsedStaff = JSON.parse(current);
+    const parsedUsers = JSON.parse(usersData);
+    console.log('✓ Current staffData:', parsedStaff.length, 'members');
+    console.log('✓ Current users:', parsedUsers.length, 'users');
+    alert(`window.localStorage is working!\nStored: ${parsedStaff.length} staff members\nStored: ${parsedUsers.length} users\nSize: ${current.length} chars`);
   } else {
-    console.log('⚠️ No staffData in getStorage() yet');
-    alert('getStorage() works but no data saved yet');
+    console.log('⚠️ No data in window.localStorage yet');
+    alert('window.localStorage works but no data saved yet');
   }
   
-  getStorage().removeItem('test123');
+  window.localStorage.removeItem('test123');
 }
 
 // Initialize on load when DOM is ready
