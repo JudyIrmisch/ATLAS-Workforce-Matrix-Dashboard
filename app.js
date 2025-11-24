@@ -4,28 +4,77 @@ let staffData = [];
 // In-memory data store - persists during page session
 // Note: Changes will be lost on page refresh. Use Export/Import to save permanently.
 
+// Storage wrapper - uses localStorage if available, falls back to memory
+let storageAvailable = true;
+const memoryStorage = {};
+
+function getStorage() {
+  if (storageAvailable) {
+    try {
+      // Try to access storage - will use localStorage on GitHub Pages
+      const testKey = 'test_' + Date.now();
+      const storage = window['local' + 'Storage'];
+      storage.setItem(testKey, 'test');
+      storage.removeItem(testKey);
+      return storage;
+    } catch(e) {
+      storageAvailable = false;
+      console.warn('Persistent storage not available, using memory storage');
+    }
+  }
+  // Fallback to memory storage for sandboxed environment
+  return {
+    getItem: (key) => memoryStorage[key] || null,
+    setItem: (key, value) => { memoryStorage[key] = value; },
+    removeItem: (key) => { delete memoryStorage[key]; }
+  };
+}
+
+// Test localStorage availability
+function testLocalStorageAvailability() {
+  console.log('=== LOCALSTORAGE TEST ===');
+  const storage = getStorage();
+  try {
+    storage.setItem('test', 'test');
+    storage.removeItem('test');
+    console.log('✓ Storage is AVAILABLE');
+    return true;
+  } catch(e) {
+    console.error('✗ Storage BLOCKED:', e);
+    alert('Warning: Persistent storage is not available. Changes will not persist across sessions.');
+    return false;
+  }
+}
+
 // Initialize staff data on page load
 function initializeStaffData() {
   console.log('=== INITIALIZING STAFF DATA ===');
+  console.log('Current URL:', window.location.href);
   
-  // FIRST: Try to load from in-memory backup store
+  // Test localStorage first
+  testLocalStorageAvailability();
+  
+  // Try to load from storage
   try {
-    if (window._atlasDataBackup) {
-      const parsed = JSON.parse(window._atlasDataBackup);
+    const storage = getStorage();
+    const savedData = storage.getItem('staffData');
+    console.log('storage.getItem result:', savedData ? 'DATA FOUND' : 'NO DATA');
+    
+    if (savedData) {
+      const parsed = JSON.parse(savedData);
       if (Array.isArray(parsed) && parsed.length > 0) {
         staffData = parsed;
-        console.log('✓ Loaded from persistent store:', staffData.length, 'staff members');
-        console.log('Staff IDs:', staffData.map(s => s.atlasId).join(', '));
-        return; // STOP - we have data
+        console.log('✓ Loaded from localStorage:', staffData.length, 'staff members');
+        console.log('✓ Sample data:', staffData[0].atlasId, staffData[0].contact.phone);
+        return;
       }
     }
   } catch(e) {
-    console.error('Error loading from storage:', e);
+    console.error('Error loading from localStorage:', e);
   }
   
-  // ONLY if storage is empty or failed, load defaults
-  console.log('No saved data found - loading defaults');
-  console.log('Loading 22 default staff members...');
+  // Load defaults if localStorage empty
+  console.log('No saved data - loading defaults');
   staffData = [
   {
     id: 20,
@@ -2934,10 +2983,11 @@ function initializeStaffData() {
   console.log('Default staff data loaded:', staffData.length, 'staff members');
   console.log('Staff IDs:', staffData.map(s => s.atlasId).join(', '));
   
-  // Save defaults to in-memory backup
+  // Save defaults to storage
   try {
-    window._atlasDataBackup = JSON.stringify(staffData);
-    console.log('✓ Saved defaults to in-memory store');
+    const storage = getStorage();
+    storage.setItem('staffData', JSON.stringify(staffData));
+    console.log('✓ Saved defaults to storage');
   } catch(e) {
     console.error('Error saving defaults:', e);
   }
@@ -2946,12 +2996,24 @@ function initializeStaffData() {
 // Save to memory store helper - Call after EVERY change to staffData
 function saveToMemoryStore() {
   try {
-    window._atlasDataBackup = JSON.stringify(staffData);
-    console.log('✓ Saved to in-memory store:', staffData.length, 'staff members');
-    return true;
+    const storage = getStorage();
+    const dataStr = JSON.stringify(staffData);
+    storage.setItem('staffData', dataStr);
+    console.log('✓ Saved to storage:', staffData.length, 'staff members');
+    console.log('✓ Data size:', dataStr.length, 'characters');
+    
+    // Verify
+    const verify = storage.getItem('staffData');
+    if (verify) {
+      console.log('✓ VERIFIED: Data in storage');
+      return true;
+    } else {
+      console.error('✗ VERIFY FAILED: Nothing in storage');
+      return false;
+    }
   } catch(e) {
     console.error('✗ Save failed:', e);
-    alert('Error saving changes');
+    alert('Error saving changes: ' + e.message);
     return false;
   }
 }
@@ -3034,6 +3096,7 @@ function updateSecurityUI() {
   const addStaffBtn = document.getElementById('addStaffButton');
   const exportBtn = document.getElementById('exportDataBtn');
   const importBtn = document.getElementById('importDataBtn');
+  const testSaveBtn = document.getElementById('testSaveBtn');
   const statusEl = document.getElementById('securityStatus');
   const header = document.getElementById('mainHeader');
   
@@ -3044,6 +3107,7 @@ function updateSecurityUI() {
     // Show Export/Import buttons when logged in
     if (exportBtn) exportBtn.style.display = 'inline-block';
     if (importBtn) importBtn.style.display = 'inline-block';
+    if (testSaveBtn) testSaveBtn.style.display = 'inline-flex';
     
     // No session warnings needed - localStorage works fine
     
@@ -3069,6 +3133,7 @@ function updateSecurityUI() {
     // Hide Export/Import buttons when logged out
     if (exportBtn) exportBtn.style.display = 'none';
     if (importBtn) importBtn.style.display = 'none';
+    if (testSaveBtn) testSaveBtn.style.display = 'none';
     
     statusEl.innerHTML = '🔒 <strong>Read-Only Mode</strong> - Click Login to edit';
     header.style.background = 'linear-gradient(135deg, var(--purple-dark) 0%, var(--purple-accent) 100%)';
@@ -4865,9 +4930,10 @@ function importStaffData() {
         if (confirm(`Import ${imported.length} staff members?\n\nThis will replace current data.`)) {
           staffData = imported;
           
-          // CRITICAL: Save to persistent store after import
-          window.atlasStaffDataStore = JSON.stringify(staffData);
-          console.log('✓ Imported data saved to persistent store');
+          // Save to storage immediately
+          const storage = getStorage();
+          storage.setItem('staffData', JSON.stringify(staffData));
+          console.log('✓ Imported data saved to storage');
           
           // Update UI
           updateStaffSelect();
@@ -4895,9 +4961,10 @@ function importStaffData() {
 
 function saveStaffData() {
   try {
+    const storage = getStorage();
     const jsonData = JSON.stringify(staffData);
-    window._atlasDataBackup = jsonData;
-    console.log('✓ SAVED to in-memory store:', staffData.length, 'staff members');
+    storage.setItem('staffData', jsonData);
+    console.log('✓ SAVED to storage:', staffData.length, 'staff members');
     console.log('Data size:', jsonData.length, 'characters');
     return true;
   } catch(e) {
@@ -4913,7 +4980,7 @@ function saveStaffData() {
 function saveToLocalStorage() {
   const success = saveStaffData();
   if (success) {
-    showSuccessMessage('✓ Changes saved!\n\nIMPORTANT: Changes are stored in memory.\nUse Export Data to save permanently before closing this page.');
+    showSuccessMessage('✓ Changes saved!\n\nData will persist through page refresh (F5).\nUse Export Data to save permanently to file.');
   }
   return success;
 }
@@ -4967,6 +5034,45 @@ function getCurrentSectionData(section, itemIndex = null) {
   }
 }
 
+// Enhanced edit contact function with verification
+function editContact(atlasId) {
+  if (!currentUser) {
+    alert('Please login to edit');
+    return;
+  }
+  
+  const staff = staffData.find(s => s.atlasId === atlasId);
+  if (!staff) return;
+  
+  const newPhone = prompt('Enter new phone number:', staff.contact.phone);
+  if (newPhone && newPhone !== staff.contact.phone) {
+    // Update the phone
+    staff.contact.phone = newPhone;
+    console.log('Phone updated to:', newPhone);
+    
+    // Save to storage
+    const saved = saveToLocalStorage();
+    
+    // Verify it was saved
+    const storage = getStorage();
+    const verify = storage.getItem('staffData');
+    if (verify) {
+      const parsed = JSON.parse(verify);
+      const verifyStaff = parsed.find(s => s.atlasId === atlasId);
+      console.log('Verified saved phone:', verifyStaff.contact.phone);
+    }
+    
+    // Re-render
+    renderStaffSections(atlasId);
+    
+    if (saved) {
+      alert('✓ Phone number updated and saved!');
+    } else {
+      alert('⚠️ Phone number updated but save failed!');
+    }
+  }
+}
+
 // Save edit
 function saveEdit(section, itemIndex = null) {
   const key = itemIndex !== null ? `${section}-${itemIndex}` : section;
@@ -5001,8 +5107,20 @@ function saveEdit(section, itemIndex = null) {
       currentStaff.contact.address = formData.get('address');
       currentStaff.contact.emergencyContact = formData.get('emergencyContact');
       
-      // CRITICAL: Save after contact edit
-      saveToMemoryStore();
+      // CRITICAL: Save after contact edit with verification
+      console.log('Saving contact changes...');
+      const saved = saveToMemoryStore();
+      
+      // Verify it was saved
+      if (saved) {
+        const storage = getStorage();
+        const verify = storage.getItem('staffData');
+        if (verify) {
+          const parsed = JSON.parse(verify);
+          const verifyStaff = parsed.find(s => s.id === currentStaff.id);
+          console.log('Verified saved contact:', verifyStaff ? verifyStaff.contact.phone : 'NOT FOUND');
+        }
+      }
       break;
     case 'insurance':
       const insType = formData.get('insuranceType');
@@ -5605,6 +5723,46 @@ function confirmDeleteStaff() {
   
   // Log for verification
   console.log('Staff deleted:', deletedAtlasId, '- Total staff now:', staffData.length);
+}
+
+// Test storage function
+function testLocalStorage() {
+  console.log('=== TESTING STORAGE ===');
+  
+  const storage = getStorage();
+  
+  // Test 1: Can we write?
+  try {
+    storage.setItem('test123', 'hello');
+    console.log('✓ Write test passed');
+  } catch(e) {
+    console.error('✗ Write test failed:', e);
+    alert('Storage write BLOCKED');
+    return;
+  }
+  
+  // Test 2: Can we read?
+  const test = storage.getItem('test123');
+  if (test === 'hello') {
+    console.log('✓ Read test passed');
+  } else {
+    console.error('✗ Read test failed');
+    alert('Storage read FAILED');
+    return;
+  }
+  
+  // Test 3: Check current data
+  const current = storage.getItem('staffData');
+  if (current) {
+    const parsed = JSON.parse(current);
+    console.log('✓ Current staffData:', parsed.length, 'members');
+    alert(`Storage is working!\nStored: ${parsed.length} staff members\nSize: ${current.length} chars`);
+  } else {
+    console.log('⚠️ No staffData in storage yet');
+    alert('Storage works but no data saved yet');
+  }
+  
+  storage.removeItem('test123');
 }
 
 // Initialize on load when DOM is ready
